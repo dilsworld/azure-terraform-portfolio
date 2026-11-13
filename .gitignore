@@ -1,0 +1,13 @@
+# Terraform working files
+.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+tfplan
+*.tfplan
+
+# Contain subscription IDs / home IP
+*.tfvars
+!*.tfvars.example
+
+.DS_Store

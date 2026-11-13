@@ -1,0 +1,11 @@
+# Terraform working files
+.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+
+# Contains your home IP
+*.tfvars
+.DS_Store
+.DS_Store
+.DS_Store

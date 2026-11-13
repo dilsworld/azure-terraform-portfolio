@@ -1,0 +1,6 @@
+subscription_id = "00000000-0000-0000-0000-000000000000"
+prefix          = "demo"
+location        = "uksouth"
+
+# admin_group_object_ids   = ["<entra-group-object-id>"]
+# api_authorized_ip_ranges = ["203.0.113.10/32"]
