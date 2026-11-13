@@ -11,3 +11,5 @@ tfplan
 !*.tfvars.example
 
 .DS_Store
+
+plan.txt

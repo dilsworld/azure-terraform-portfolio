@@ -1,0 +1,2 @@
+# Copy to terraform.tfvars for local runs (terraform.tfvars is not committed)
+ssh_source_cidr = "203.0.113.10/32"
