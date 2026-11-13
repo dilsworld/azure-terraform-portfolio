@@ -12,7 +12,7 @@ provider "azurerm" {
 }
 
 resource "azurerm_resource_group" "rg" {
-  name     = "rg-webdb-ukwest"
+  name     = "rg-webdb-ukwest123"
   location = "ukwest"
 }
 
