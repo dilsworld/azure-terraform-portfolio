@@ -1,0 +1,7 @@
+# Copy to terraform.tfvars for local runs (terraform.tfvars is not committed)
+# Defaults replicate UK South -> UK West. Nothing needs setting for a basic run.
+
+# primary_location   = "uksouth"
+# secondary_location = "ukwest"
+# vm_size            = "Standard_B2s_v2"
+# ssh_public_key_path = "~/.ssh/id_rsa.pub"

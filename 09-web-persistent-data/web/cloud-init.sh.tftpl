@@ -1,0 +1,57 @@
+#!/bin/bash
+# Runs on first boot of every new VM. Log: /var/log/webdata-setup.log
+set -eo pipefail
+exec > /var/log/webdata-setup.log 2>&1
+
+SIZE_BYTES=$(( ${disk_size_gb} * 1024 * 1024 * 1024 ))
+DISK=""
+
+# Terraform attaches the disk AFTER the VM boots, so wait for it (up to 10 min).
+# Works for both NVMe (v6/v7 sizes) and SCSI controllers.
+for i in $(seq 1 60); do
+  for c in /dev/disk/azure/data/by-lun/0 /dev/disk/azure/scsi1/lun0; do
+    if [ -e "$c" ]; then DISK=$(readlink -f "$c"); break; fi
+  done
+  if [ -z "$DISK" ]; then
+    # Fallback: find the unformatted-or-labelled disk matching the data disk size
+    DISK=$(lsblk -dbnpo NAME,SIZE,TYPE | awk -v s="$SIZE_BYTES" '$2==s && $3=="disk" {print $1; exit}')
+  fi
+  [ -n "$DISK" ] && break
+  echo "Waiting for data disk... ($i)"
+  sleep 10
+done
+
+if [ -z "$DISK" ]; then echo "ERROR: data disk not found"; exit 1; fi
+echo "Data disk is $DISK"
+
+# Format ONLY if the disk has no filesystem (first ever deploy)
+if ! blkid "$DISK" >/dev/null 2>&1; then
+  echo "New disk - formatting"
+  mkfs.ext4 -L webdata "$DISK"
+else
+  echo "Existing filesystem found - keeping data"
+fi
+
+mkdir -p /var/www
+grep -q 'LABEL=webdata' /etc/fstab || echo 'LABEL=webdata /var/www ext4 defaults,nofail 0 2' >> /etc/fstab
+systemctl daemon-reload
+mount -a
+
+apt-get update
+DEBIAN_FRONTEND=noninteractive apt-get install -y nginx
+
+mkdir -p /var/www/html
+if [ ! -f /var/www/html/index.html ]; then
+  cat > /var/www/html/index.html <<HTML
+<h1>Persistent web lab</h1>
+<p>Site content first created: $(date -u '+%Y-%m-%d %H:%M UTC')</p>
+<p>If this date stays the same after a destroy/apply, the data disk is working.</p>
+<p><a href="/rebuilds.txt">Rebuild history</a></p>
+HTML
+fi
+
+# One line per VM build - proves the disk survived each rebuild
+echo "$(date -u '+%Y-%m-%d %H:%M UTC') built on $(hostname)" >> /var/www/html/rebuilds.txt
+
+systemctl enable --now nginx
+echo "Done"
