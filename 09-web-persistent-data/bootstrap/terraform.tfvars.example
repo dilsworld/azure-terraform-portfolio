@@ -1,0 +1,3 @@
+subscription_id = "00000000-0000-0000-0000-000000000000"
+github_repo     = "your-github-user/your-repo"
+# github_oidc_subject_repo = "your-user@123/your-repo@456"  # if GitHub sends ID-style subjects

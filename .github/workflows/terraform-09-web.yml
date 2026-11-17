@@ -1,0 +1,113 @@
+name: terraform-09-web
+
+# PR      -> fmt, validate, plan (posted as a PR comment)
+# merge   -> apply (waits for approval on the "production" environment)
+# manual  -> apply or destroy the web layer from the Actions tab
+on:
+  pull_request:
+    branches: [main]
+    paths: ["09-web-persistent-data/web/**", ".github/workflows/terraform-09-web.yml"]
+  push:
+    branches: [main]
+    paths: ["09-web-persistent-data/web/**"]
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "Apply or destroy the web layer"
+        type: choice
+        options: [apply, destroy]
+        default: apply
+
+permissions:
+  id-token: write       # needed for OIDC login to Azure
+  contents: read
+  pull-requests: write  # needed to comment the plan on the PR
+
+concurrency:
+  group: terraform-web
+  cancel-in-progress: false
+
+env:
+  ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+  ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+  ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+  ARM_USE_OIDC: "true"
+  TF_VAR_subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+  TF_VAR_ssh_public_key: ${{ vars.SSH_PUBLIC_KEY }}
+  TF_IN_AUTOMATION: "true"
+
+defaults:
+  run:
+    working-directory: 09-web-persistent-data/web
+
+jobs:
+  plan:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_wrapper: false
+
+      - name: Format check
+        run: terraform fmt -check -recursive
+
+      - name: Init
+        run: terraform init -input=false -backend-config=backend.hcl
+
+      - name: Validate
+        run: terraform validate
+
+      - name: Plan
+        run: |
+          terraform plan -input=false -no-color -out=tfplan
+          terraform show -no-color tfplan > plan.txt
+
+      - name: Comment plan on PR
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const fs = require('fs');
+            const plan = fs.readFileSync('09-web-persistent-data/web/plan.txt', 'utf8');
+            const body = '### Terraform plan: web layer\n```\n' + plan.slice(-60000) + '\n```';
+            await github.rest.issues.createComment({
+              ...context.repo,
+              issue_number: context.issue.number,
+              body
+            });
+
+  apply:
+    if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.action == 'apply')
+    runs-on: ubuntu-24.04
+    environment: production   # add yourself as a required reviewer for an approval gate
+    steps:
+      - uses: actions/checkout@v7
+      - uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_wrapper: false
+
+      - name: Init
+        run: terraform init -input=false -backend-config=backend.hcl
+
+      - name: Apply
+        run: terraform apply -input=false -auto-approve
+
+      - name: Show URL
+        run: terraform output
+
+  destroy:
+    if: github.event_name == 'workflow_dispatch' && inputs.action == 'destroy'
+    runs-on: ubuntu-24.04
+    environment: production
+    steps:
+      - uses: actions/checkout@v7
+      - uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_wrapper: false
+
+      - name: Init
+        run: terraform init -input=false -backend-config=backend.hcl
+
+      - name: Destroy web layer (persistent data is untouched)
+        run: terraform destroy -input=false -auto-approve

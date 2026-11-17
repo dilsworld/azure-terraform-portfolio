@@ -1,0 +1,14 @@
+# Terraform working files
+.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+tfplan
+
+# Contains your subscription ID / home IP
+*.tfvars
+!*.tfvars.example
+.DS_Store
+plan.txt
+
+# backend.hcl is NOT secret - commit it so the pipeline can use it
